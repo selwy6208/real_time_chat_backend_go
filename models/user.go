@@ -13,8 +13,10 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string `gorm:"size:255;not null;unique" json:"username"`
-	Password string `gorm:"size:255;not null;" json:"password"`
+	FirstName string `gorm:"size:255;not null;unique" json:"firstname"`
+	LastName  string `gorm:"size:255;not null;unique" json:"lastname"`
+	Email     string `gorm:"size:255;not null;unique" json:"email"`
+	Password  string `gorm:"size:255;not null;" json:"password"`
 }
 
 func GetUserByID(uid uint) (User, error) {
@@ -38,13 +40,13 @@ func VerifyPassword(password, hashedPassword string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-func LoginCheck(username string, password string) (string, error) {
+func LoginCheck(email string, password string) (string, error) {
 
 	var err error
 
 	u := User{}
 
-	err = DB.Model(User{}).Where("username = ?", username).Take(&u).Error
+	err = DB.Model(User{}).Where("email = ?", email).Take(&u).Error
 
 	if err != nil {
 		return "", err
@@ -85,7 +87,8 @@ func (u *User) BeforeSave() error {
 	u.Password = string(hashedPassword)
 
 	//remove spaces in username
-	u.Username = html.EscapeString(strings.TrimSpace(u.Username))
+	u.FirstName = html.EscapeString(strings.TrimSpace(u.FirstName))
+	u.LastName = html.EscapeString(strings.TrimSpace(u.LastName))
 
 	return nil
 

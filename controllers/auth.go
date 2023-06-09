@@ -9,13 +9,15 @@ import (
 )
 
 type LoginInput struct {
-	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
 type RegisterInput struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	FirstName string `json:"firstname" binding:"required"`
+	LastName  string `json:"lastname" binding:"required"`
+	Email     string `json:"email" binding:"required"`
+	Password  string `json:"password" binding:"required"`
 }
 
 func Login(c *gin.Context) {
@@ -29,13 +31,13 @@ func Login(c *gin.Context) {
 
 	u := models.User{}
 
-	u.Username = input.Username
+	u.Email = input.Email
 	u.Password = input.Password
 
-	token, err := models.LoginCheck(u.Username, u.Password)
+	token, err := models.LoginCheck(u.Email, u.Password)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "username or password is incorrect."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email or password is incorrect."})
 		return
 	}
 
@@ -54,7 +56,9 @@ func Register(c *gin.Context) {
 
 	u := models.User{}
 
-	u.Username = input.Username
+	u.FirstName = input.FirstName
+	u.LastName = input.LastName
+	u.Email = input.Email
 	u.Password = input.Password
 
 	_, err := u.SaveUser()
