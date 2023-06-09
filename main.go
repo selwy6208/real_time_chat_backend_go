@@ -1,7 +1,19 @@
 package main
 
-import "fmt"
+import (
+	"real-chat-backend/controllers"
+
+	"github.com/gin-gonic/gin"
+)
 
 func main() {
-	fmt.Println("Real-Time Chat Backend")
+
+	r := gin.Default()
+
+	public := r.Group("/api")
+
+	public.POST("/register", controllers.Register)
+
+	r.Run(":8080")
+
 }
