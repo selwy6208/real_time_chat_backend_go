@@ -46,7 +46,6 @@ func Login(c *gin.Context) {
 }
 
 func Register(c *gin.Context) {
-
 	var input RegisterInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
