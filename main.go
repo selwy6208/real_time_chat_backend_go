@@ -2,6 +2,7 @@ package main
 
 import (
 	"real-chat-backend/controllers"
+	"real-chat-backend/middlewares"
 	"real-chat-backend/models"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,10 @@ func main() {
 
 	public.POST("/register", controllers.Register)
 	public.POST("/login", controllers.Login)
+
+	protected := r.Group("/api/admin")
+	protected.Use(middlewares.JwtAuthMiddleware())
+	protected.GET("/user", controllers.CurrentUser)
 
 	r.Run(":8080")
 
