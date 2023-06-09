@@ -2,11 +2,14 @@ package main
 
 import (
 	"real-chat-backend/controllers"
+	"real-chat-backend/models"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+
+	models.ConnectDataBase()
 
 	r := gin.Default()
 
@@ -15,5 +18,4 @@ func main() {
 	public.POST("/register", controllers.Register)
 
 	r.Run(":8080")
-
 }
