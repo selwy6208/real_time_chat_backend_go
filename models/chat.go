@@ -1,6 +1,8 @@
 package models
 
 import (
+	"errors"
+
 	"github.com/jinzhu/gorm"
 )
 
@@ -18,4 +20,15 @@ func (u *Message) SaveMessage() (*Message, error) {
 		return &Message{}, err
 	}
 	return u, nil
+}
+
+func GetMessage() ([]Message, error) {
+
+	var messages []Message
+
+	if err := DB.Find(&messages).Error; err != nil {
+		return messages, errors.New("messages not found")
+	}
+
+	return messages, nil
 }

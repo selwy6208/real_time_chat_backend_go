@@ -34,6 +34,7 @@ func main() {
 	protected.GET("/user", controllers.CurrentUser)
 	protected.GET("/getUsers", controllers.GetUsers)
 	protected.POST("/saveMessage", controllers.SaveMessage)
+	protected.GET("/getMessage", controllers.GetMessage)
 
 	public.GET("/ws", controllers.WsHandler)
 
