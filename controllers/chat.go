@@ -2,7 +2,10 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"real-chat-backend/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -159,4 +162,30 @@ func WsHandler(c *gin.Context) {
 	go client.read()
 	//Start the corporation to return the message to the web side
 	go client.write()
+}
+
+func SaveMessage(c *gin.Context) {
+	fmt.Println("aveerer")
+	var input Message
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	u := models.Message{}
+
+	u.Sender = input.Sender
+	u.Recipient = input.Recipient
+	u.Content = input.Content
+
+	_, err := u.SaveMessage()
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "save success"})
+
 }
