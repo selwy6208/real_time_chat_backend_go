@@ -2,8 +2,9 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
+	"strings"
 
 	"real-chat-backend/models"
 	"real-chat-backend/utils/token"
@@ -21,6 +22,8 @@ type Client struct {
 	socket *websocket.Conn
 	//Message
 	send chan []byte
+	//current user Id
+	userid string
 }
 
 // Client management
@@ -28,7 +31,8 @@ type ClientManager struct {
 	//The client map stores and manages all long connection clients, online is TRUE, and those who are not there are FALSE
 	clients map[*Client]bool
 	//Web side MESSAGE we use Broadcast to receive, and finally distribute it to all clients
-	broadcast chan []byte
+	broadcast   chan []byte
+	sendMessage chan []byte
 	//Newly created long connection client
 	register chan *Client
 	//Newly canceled long connection client
@@ -37,18 +41,36 @@ type ClientManager struct {
 
 // Create a client Manager
 var Manager = ClientManager{
-	broadcast:  make(chan []byte),
-	register:   make(chan *Client),
-	unregister: make(chan *Client),
-	clients:    make(map[*Client]bool),
+	broadcast:   make(chan []byte),
+	sendMessage: make(chan []byte),
+	register:    make(chan *Client),
+	unregister:  make(chan *Client),
+	clients:     make(map[*Client]bool),
 }
 
 // Will formatting Message into JSON
+type SocketMessage struct {
+	MessageType string `json:"message_type,omitempty"`
+	MessageData string `json:"message_data,omitempty"`
+}
+
+type IncomingNewMessage struct {
+	MessageType string `json:"message_type,omitempty"`
+	MessageData string `json:"message_data,omitempty"`
+}
 type Message struct {
-	//Message Struct
+	Content   string `json:"content,omitempty"`
 	Sender    string `json:"sender,omitempty"`
 	Recipient string `json:"recipient,omitempty"`
-	Content   string `json:"content,omitempty"`
+}
+
+// Will formatting Input Data to get Message into JSON
+type InputMessage struct {
+	Sender    string `json:"sender,omitempty"`
+	Recipient string `json:"recipient,omitempty"`
+}
+type GetMessagesInput struct {
+	ChatUserID uint `json:"chat_user_id" binding:"required"`
 }
 
 var upgrader = websocket.Upgrader{
@@ -67,20 +89,14 @@ func (Manager *ClientManager) Start() {
 		case conn := <-Manager.register:
 			//Set the client connection to true
 			Manager.clients[conn] = true
-			//Format the message of returning to the successful connection JSON
-			jsonMessage, _ := json.Marshal(&Message{Content: "/A new socket has connected. "})
-			//Call the client's send method and send messages
-			Manager.send(jsonMessage, conn)
-			//If the connection is disconnected
 		case conn := <-Manager.unregister:
 			//Determine the state of the connection, if it is true, turn off Send and delete the value of connecting client
 			if _, ok := Manager.clients[conn]; ok {
 				close(conn.send)
 				delete(Manager.clients, conn)
-				jsonMessage, _ := json.Marshal(&Message{Content: "/A socket has disconnected. "})
+				jsonMessage, _ := json.Marshal(&SocketMessage{MessageType: "close_connection", MessageData: conn.userid})
 				Manager.send(jsonMessage, conn)
 			}
-			//broadcast
 		case message := <-Manager.broadcast:
 			//Traversing the client that has been connected, send the message to them
 			for conn := range Manager.clients {
@@ -91,7 +107,30 @@ func (Manager *ClientManager) Start() {
 					delete(Manager.clients, conn)
 				}
 			}
+		case message := <-Manager.sendMessage:
+			//Traversing the client that has been connected, send the message to them
+			var data models.IncomingNewMessage
+			err := json.Unmarshal(message, &data)
+			if err != nil {
+				// Handle the error
+				log.Fatal(err.Error())
+				return
+			}
+			for conn := range Manager.clients {
+				var _message models.Message
+				_err := json.Unmarshal([]byte(data.MessageData), &_message)
+				if _err != nil {
+					// Handle the error
+					log.Fatal(_err.Error())
+					return
+				}
+				if conn.userid == _message.Recipient {
+					/* Send the messages to the recipient */
+					conn.send <- message
+				}
+			}
 		}
+
 	}
 }
 
@@ -122,8 +161,43 @@ func (c *Client) read() {
 			break
 		}
 		//If there is no error message, put the information in Broadcast
-		jsonMessage, _ := json.Marshal(&Message{Sender: c.id, Content: string(message)})
-		Manager.broadcast <- jsonMessage
+		var data models.SocketMessage
+		_err := json.Unmarshal(message, &data)
+		if _err != nil {
+			// Handle the error
+			log.Fatal(err.Error())
+			return
+		}
+		if data.MessageType == "new_connection" {
+			Manager.send(message, c)
+			var incomingNewConnectionUserID string = data.MessageData
+			var onlineUsers []string
+			for conn := range Manager.clients {
+				if conn.id == c.id {
+					conn.userid = incomingNewConnectionUserID
+				} else {
+					if conn.userid != "" {
+						onlineUsers = append(onlineUsers, conn.userid)
+					}
+				}
+			}
+			/* Get online users */
+			resultStr := strings.Join(onlineUsers, ",")
+			jsonMessage, _ := json.Marshal(&SocketMessage{MessageType: "online_users", MessageData: resultStr})
+			c.send <- jsonMessage
+
+		} else if data.MessageType == "new_message" {
+			var message_data string = data.MessageData
+			var data models.Message
+			_err := json.Unmarshal([]byte(message_data), &data)
+			if _err != nil {
+				// Handle the error
+				log.Fatal(err.Error())
+				return
+			}
+			go SaveMessage(data)
+			Manager.sendMessage <- message
+		}
 	}
 }
 
@@ -165,47 +239,35 @@ func WsHandler(c *gin.Context) {
 	go client.write()
 }
 
-func SaveMessage(c *gin.Context) {
-	fmt.Println("aveerer")
-	var input Message
+func SaveMessage(data models.Message) {
+	u := models.Message{
+		Sender:    data.Sender,
+		Recipient: data.Recipient,
+		Content:   data.Content,
+	}
+
+	_, err := u.SaveMessage()
+
+	if err != nil {
+		// Handle the error
+		return
+	}
+}
+
+func GetMessage(c *gin.Context) {
+	var input GetMessagesInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	u := models.Message{}
-
-	u.Sender = input.Sender
-	u.Recipient = input.Recipient
-	u.Content = input.Content
-
-	_, err := u.SaveMessage()
+	myID, err := token.ExtractTokenID(c)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "save success"})
-
-}
-
-func GetMessage(c *gin.Context) {
-
-	_, err := token.ExtractTokenID(c)
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	u, err := models.GetMessage()
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	u, _ := models.GetMessagesByUserID(myID, input.ChatUserID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": u})
 }
