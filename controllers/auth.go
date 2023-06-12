@@ -20,6 +20,7 @@ type RegisterInput struct {
 	Password  string `json:"password" binding:"required"`
 }
 
+/* Login function */
 func Login(c *gin.Context) {
 
 	var input LoginInput
@@ -45,6 +46,7 @@ func Login(c *gin.Context) {
 
 }
 
+/* Create Account */
 func Register(c *gin.Context) {
 	var input RegisterInput
 
@@ -66,11 +68,11 @@ func Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "registration success"})
 
 }
 
+/* the current user */
 func CurrentUser(c *gin.Context) {
 
 	user_id, err := token.ExtractTokenID(c)
