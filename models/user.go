@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"html"
 	"strings"
 
@@ -13,8 +14,8 @@ import (
 
 type User struct {
 	gorm.Model
-	FirstName string `gorm:"size:255;not null;unique" json:"firstname"`
-	LastName  string `gorm:"size:255;not null;unique" json:"lastname"`
+	FirstName string `gorm:"size:255;not null" json:"firstname"`
+	LastName  string `gorm:"size:255;not null" json:"lastname"`
 	Email     string `gorm:"size:255;not null;unique" json:"email"`
 	Password  string `gorm:"size:255;not null;" json:"password"`
 }
@@ -30,6 +31,19 @@ func GetUserByID(uid uint) (User, error) {
 	u.PrepareGive()
 
 	return u, nil
+}
+
+func GetMessagesByUserID(myID uint, chatUserId uint) ([]Message, error) {
+	fmt.Println("GetMessagesByUserID")
+	fmt.Println(myID)
+	fmt.Println(chatUserId)
+	var messages []Message
+
+	if err := DB.Model(Message{}).Where("(sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)", myID, chatUserId, chatUserId, myID).Find(&messages).Error; err != nil {
+		return messages, errors.New("users not found")
+	}
+
+	return messages, nil
 }
 
 func GetUsers() ([]User, error) {
