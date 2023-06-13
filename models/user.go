@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"fmt"
 	"html"
 	"strings"
 
@@ -34,9 +33,6 @@ func GetUserByID(uid uint) (User, error) {
 }
 
 func GetMessagesByUserID(myID uint, chatUserId uint) ([]Message, error) {
-	fmt.Println("GetMessagesByUserID")
-	fmt.Println(myID)
-	fmt.Println(chatUserId)
 	var messages []Message
 
 	if err := DB.Model(Message{}).Where("(sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)", myID, chatUserId, chatUserId, myID).Find(&messages).Error; err != nil {
